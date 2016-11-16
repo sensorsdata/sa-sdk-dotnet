@@ -113,7 +113,7 @@ namespace SensorsData.Analytics
         /// </summary>
         /// <param name="distinctId">用户ID</param>
         /// <param name="properties">用户的属性集合</param>
-        public void TrofileSet(String distinctId, Dictionary<String, Object> properties)
+        public void ProfileSet(String distinctId, Dictionary<String, Object> properties)
         {
             AddEvent(distinctId, null, "profile_set", null, properties);
         }
