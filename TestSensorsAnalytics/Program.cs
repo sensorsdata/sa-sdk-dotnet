@@ -32,7 +32,7 @@ namespace TestSensorsAnalytics
             Console.WriteLine("5:");
             Dictionary<string, Object> dic5 = new Dictionary<string, object>();
             dic5.Add("mingcheng", "花肚皮");
-            sa.TrofileSet("333-444", dic5);
+            sa.ProfileSet("333-444", dic5);
 
             Console.WriteLine("6:");
             sa.ProfileSet("333-444", "mingcheng", "花肚皮update");
@@ -48,7 +48,7 @@ namespace TestSensorsAnalytics
             like.Add("橘子");
             dic8.Add("mingcheng", "花肚皮1");
             dic8.Add("like", like);
-            sa.TrofileSet("333-444", dic8);
+            sa.ProfileSet("333-444", dic8);
 
             Console.WriteLine("9:");
             Dictionary<string, Object> dic9 = new Dictionary<string, object>();
@@ -81,7 +81,7 @@ namespace TestSensorsAnalytics
             dic10.Add("list1", list);
 
             sa.Track("555", "wsc_type", dic10);
-            sa.TrofileSet("555", dic10);
+            sa.ProfileSet("555", dic10);
 
             sa.Shutdown();
             Console.ReadLine();
