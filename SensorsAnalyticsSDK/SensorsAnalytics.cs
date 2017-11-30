@@ -352,7 +352,7 @@ namespace SensorsData.Analytics
             }
 
             // Event time
-            long time = (long)(DateTime.UtcNow - Jan1st1970).TotalMilliseconds;
+            long time = (long)(DateTime.Now - Jan1st1970).TotalMilliseconds;
             if (properties != null && properties.ContainsKey("$time"))
             {
                 DateTime eventTime = (DateTime)properties["$time"];
