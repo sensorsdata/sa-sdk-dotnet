@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Collections.Concurrent;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -9,11 +8,11 @@ namespace SensorsData.Analytics
 {
     public class SensorsAnalytics
     {
-        private static readonly String SDK_VERSION = "1.0";
+        private static readonly String SDK_VERSION = "1.1";
         private static readonly Regex KEY_PATTERN = new Regex("^((?!^distinct_id$|^original_id$|^time$|^properties$|^id$|^first_id$|^second_id$|^users$|^events$|^event$|^user_id$|^date$|^datetime$)[a-zA-Z_$][a-zA-Z\\d_$]{0,99})$", RegexOptions.IgnoreCase);
         private static readonly DateTime Jan1st1970 = TimeZone.CurrentTimeZone.ToLocalTime(new DateTime(1970, 1, 1, 0, 0, 0, 0));
         private IConsumer consumer;
-        private ConcurrentDictionary<String, Object> superProperties;
+        private Dictionary<String, Object> superProperties;
 
         /// <summary>
         /// 构造函数
@@ -22,7 +21,7 @@ namespace SensorsData.Analytics
         public SensorsAnalytics(IConsumer consumer)
         {
             this.consumer = consumer;
-            this.superProperties = new ConcurrentDictionary<String, Object>();
+            this.superProperties = new Dictionary<String, Object>();
             this.ClearSuperProperties();
         }
 
@@ -37,11 +36,19 @@ namespace SensorsData.Analytics
         /// 例如，在调用接口前，dict是 {"a":1, "b": "bbb"}，传入的dict是 {"b": 123, "c": "asd"}，则merge后的结果是 {"a":1, "b": 123, "c": "asd"}
         /// </remarks>
         /// <param name="properties">一个或多个公共属性</param>
-        public void RegisterSuperPropperties(ConcurrentDictionary<String, Object> properties)
+        public void RegisterSuperPropperties(Dictionary<String, Object> properties)
         {
-            foreach (KeyValuePair<String, Object> kvp in properties)
+            lock (this.superProperties)
             {
-                this.superProperties.AddOrUpdate(kvp.Key, kvp.Value, (k, v) => kvp.Value);
+                foreach (KeyValuePair<String, Object> kvp in properties)
+                {
+                    if (this.superProperties.ContainsKey(kvp.Key))
+                    {
+                        this.superProperties[kvp.Key] = kvp.Value;
+                    } else {
+                        this.superProperties.Add(kvp.Key, kvp.Value);
+                    }
+                }
             }
         }
 
@@ -50,10 +57,13 @@ namespace SensorsData.Analytics
         /// </summary>
         public void ClearSuperProperties()
         {
-            this.superProperties.Clear();
-            this.superProperties.AddOrUpdate("$lib", "DotNET", (k, v) => "DotNET");
-            this.superProperties.AddOrUpdate("$lib_version", SensorsAnalytics.SDK_VERSION, (k, v) => SensorsAnalytics.SDK_VERSION);
-            this.superProperties.AddOrUpdate("$lib_method", "code", (k, v) => "code");
+            lock (this.superProperties)
+            {
+                this.superProperties.Clear();
+                this.superProperties.Add("$lib", "DotNET");
+                this.superProperties.Add("$lib_version", SensorsAnalytics.SDK_VERSION);
+                this.superProperties.Add("$lib_method", "code");
+            }
         }
 
         /// <summary>
