@@ -10,8 +10,8 @@ namespace TestSensorsAnalytics
     {
         static void Main(string[] args)
         {
-            IConsumer consumer = new LoggingConsumer("D:/test/", "wsc");
-            SensorsAnalytics sa = new SensorsAnalytics(consumer);
+            IConsumer consumer = new LoggingConsumer("D:/test", "wsc");
+            SensorsAnalytics sa = new SensorsAnalytics(consumer, true);
 
             Console.WriteLine("1:");
             sa.Track("333", "helloword");

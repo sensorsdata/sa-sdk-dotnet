@@ -8,32 +8,40 @@ namespace SensorsData.Analytics
 {
     public class SensorsAnalytics
     {
-        private static readonly String SDK_VERSION = "1.1";
+        private static readonly String SDK_VERSION = "1.2";
         private static readonly Regex KEY_PATTERN = new Regex("^((?!^distinct_id$|^original_id$|^time$|^properties$|^id$|^first_id$|^second_id$|^users$|^events$|^event$|^user_id$|^date$|^datetime$)[a-zA-Z_$][a-zA-Z\\d_$]{0,99})$", RegexOptions.IgnoreCase);
-        private static readonly DateTime Jan1st1970 = TimeZone.CurrentTimeZone.ToLocalTime(new DateTime(1970, 1, 1, 0, 0, 0, 0));
+        private static readonly DateTime EPOCH_TIME = TimeZone.CurrentTimeZone.ToLocalTime(new DateTime(1970, 1, 1, 0, 0, 0, 0));
         private IConsumer consumer;
         private Dictionary<String, Object> superProperties;
+        private bool enableTimeFree = false;
+        private bool defaultIsLoginId = false;
 
         /// <summary>
-        /// 构造函数
+        /// 构造函数。defaultIsLoginId 取值可参考：
+        /// https://www.sensorsdata.cn/manual/user_identify.html
         /// </summary>
         /// <param name="consumer"></param>
-        public SensorsAnalytics(IConsumer consumer)
+        /// <param name="defaultIsLoginId">默认使用的 distinct_id 都是注册 ID</param>
+        public SensorsAnalytics(IConsumer consumer, bool defaultIsLoginId)
         {
             this.consumer = consumer;
             this.superProperties = new Dictionary<String, Object>();
             this.ClearSuperProperties();
+            this.defaultIsLoginId = defaultIsLoginId;
         }
 
         /// <summary>
         /// 设置每个事件都带有的一些公共属性
         /// </summary>
         /// <remarks>
-        /// 当track的Properties，superProperties和SDK自动生成的automaticProperties有相同的key时，遵循如下的优先级：
+        /// 当 track 的 Properties，superProperties 和 SDK 自动生成的 automaticProperties 有相同的 key 时，
+        /// 遵循如下的优先级：
         ///     track.properties 高于 superProperties 高于 automaticProperties
         /// 
-        /// 另外，当这个接口被多次调用时，是用新传入的数据去merge先前的数据
-        /// 例如，在调用接口前，dict是 {"a":1, "b": "bbb"}，传入的dict是 {"b": 123, "c": "asd"}，则merge后的结果是 {"a":1, "b": 123, "c": "asd"}
+        /// 另外，当这个接口被多次调用时，是用新传入的值去 merge 先前的值
+        /// 例如，在调用接口前，superProperties 是 {"a":1, "b":"bbb"}，
+        /// 传入的 dict 是 {"b":123, "c":"asd"}，
+        /// 则 merge 后的结果是 {"a":1, "b":123, "c":"asd"}
         /// </remarks>
         /// <param name="properties">一个或多个公共属性</param>
         public void RegisterSuperPropperties(Dictionary<String, Object> properties)
@@ -42,12 +50,7 @@ namespace SensorsData.Analytics
             {
                 foreach (KeyValuePair<String, Object> kvp in properties)
                 {
-                    if (this.superProperties.ContainsKey(kvp.Key))
-                    {
-                        this.superProperties[kvp.Key] = kvp.Value;
-                    } else {
-                        this.superProperties.Add(kvp.Key, kvp.Value);
-                    }
+                    this.superProperties[kvp.Key] = kvp.Value;
                 }
             }
         }
@@ -64,6 +67,16 @@ namespace SensorsData.Analytics
                 this.superProperties.Add("$lib_version", SensorsAnalytics.SDK_VERSION);
                 this.superProperties.Add("$lib_method", "code");
             }
+        }
+
+        public bool IsEnableTimeFree()
+        {
+            return this.enableTimeFree;
+        }
+
+        public void SetEnableTimeFree(bool enableTimeFree)
+        {
+            this.enableTimeFree = enableTimeFree;
         }
 
         /// <summary>
@@ -92,7 +105,7 @@ namespace SensorsData.Analytics
         /// <summary>
         /// 记录用户注册事件
         /// 这个接口是一个较为复杂的功能，请在使用前先阅读相关说明:
-        /// http://www.sensorsdata.cn/manual/track_signup.html
+        /// https://www.sensorsdata.cn/manual/track_signup.html
         /// 并在必要时联系我们的技术支持人员。
         /// </summary>
         /// <param name="distinctId">新的用户ID</param>
@@ -105,7 +118,7 @@ namespace SensorsData.Analytics
         /// <summary>
         /// 记录用户注册事件
         /// 这个接口是一个较为复杂的功能，请在使用前先阅读相关说明:
-        /// http://www.sensorsdata.cn/manual/track_signup.html
+        /// https://www.sensorsdata.cn/manual/track_signup.html
         /// 并在必要时联系我们的技术支持人员。
         /// </summary>
         /// <param name="distinctId">新的用户ID</param>
@@ -319,7 +332,6 @@ namespace SensorsData.Analytics
                     throw new ArgumentException("The property value of PROFILE_INCREMENT should be a List<String>.");
                 }
             }
-
         }
 
         private Dictionary<String, String> GetLibProperties()
@@ -362,12 +374,19 @@ namespace SensorsData.Analytics
             }
 
             // Event time
-            long time = (long)(DateTime.Now - Jan1st1970).TotalMilliseconds;
+            long time = (long)(DateTime.Now - EPOCH_TIME).TotalMilliseconds;
             if (properties != null && properties.ContainsKey("$time"))
             {
                 DateTime eventTime = (DateTime)properties["$time"];
                 properties.Remove("$time");
-                time = (long)(eventTime - Jan1st1970).TotalMilliseconds;
+                time = (long)(eventTime - EPOCH_TIME).TotalMilliseconds;
+            }
+
+            String eventProject = null;
+            if (properties != null && properties.ContainsKey("$project"))
+            {
+                eventProject = (String)properties["$project"];
+                properties.Remove("$project");
             }
 
             Dictionary<String, Object> eventProperties = new Dictionary<String, Object>();
@@ -382,20 +401,20 @@ namespace SensorsData.Analytics
             {
                 foreach (KeyValuePair<String, Object> kvp in properties)
                 {
-                    if (eventProperties.ContainsKey(kvp.Key))
-                    {
-                        eventProperties.Remove(kvp.Key);
-                    }
-
                     if (kvp.Value is DateTime)
                     {
-                        eventProperties.Add(kvp.Key, ((DateTime)kvp.Value).ToString("yyyy-MM-dd HH:mm:ss.fff"));
+                        eventProperties[kvp.Key] = ((DateTime)kvp.Value).ToString("yyyy-MM-dd HH:mm:ss.fff");
                     }
                     else
                     {
-                        eventProperties.Add(kvp.Key, kvp.Value);
+                        eventProperties[kvp.Key] = kvp.Value;
                     }
                 }
+            }
+
+            if (defaultIsLoginId && !eventProperties.ContainsKey("$is_login_id"))
+            {
+                eventProperties.Add("$is_login_id", true);
             }
 
             Dictionary<String, String> libProperties = GetLibProperties();
@@ -406,6 +425,15 @@ namespace SensorsData.Analytics
             evt.Add("properties", eventProperties);
             evt.Add("lib", libProperties);
 
+            if (eventProject != null)
+            {
+                evt.Add("project", eventProject);
+            }
+
+            if (enableTimeFree)
+            {
+                evt.Add("time_free", true);
+            }
 
             if (actionType.Equals("track"))
             {
