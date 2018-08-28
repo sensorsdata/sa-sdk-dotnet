@@ -8,7 +8,7 @@ namespace SensorsData.Analytics
 {
     public class SensorsAnalytics
     {
-        private static readonly String SDK_VERSION = "1.2";
+        private static readonly String SDK_VERSION = "1.3";
         private static readonly Regex KEY_PATTERN = new Regex("^((?!^distinct_id$|^original_id$|^time$|^properties$|^id$|^first_id$|^second_id$|^users$|^events$|^event$|^user_id$|^date$|^datetime$)[a-zA-Z_$][a-zA-Z\\d_$]{0,99})$", RegexOptions.IgnoreCase);
         private static readonly DateTime EPOCH_TIME = TimeZone.CurrentTimeZone.ToLocalTime(new DateTime(1970, 1, 1, 0, 0, 0, 0));
         private IConsumer consumer;
