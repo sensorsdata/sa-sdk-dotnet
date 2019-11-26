@@ -4,9 +4,9 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Collections.Generic;
-using System.Web.Script.Serialization;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.IO.Compression;
+using Newtonsoft.Json;
 
 namespace SensorsData.Analytics
 {
@@ -26,7 +26,7 @@ namespace SensorsData.Analytics
     {
         private static readonly int BUFFER_LIMITATION = 1 * 1024 * 1024 * 1024; // 1G
 
-        private readonly JavaScriptSerializer jsonSerializer = new JavaScriptSerializer();
+        //private readonly JavaScriptSerializer jsonSerializer = new JavaScriptSerializer();
         private readonly String filenamePrefix;
         private readonly StringBuilder messageBuffer;
         private readonly int bufferSize;
@@ -51,7 +51,7 @@ namespace SensorsData.Analytics
                 {
                     try
                     {
-                        messageBuffer.Append(jsonSerializer.Serialize(message));
+                        messageBuffer.Append(JsonConvert.SerializeObject(message));
                         messageBuffer.Append("\r\n");
                     }
                     catch (Exception e)
@@ -221,7 +221,7 @@ namespace SensorsData.Analytics
 
     public class ClientConsumer : IConsumer
     {
-        private static readonly JavaScriptSerializer jsonSerializer = new JavaScriptSerializer();
+        private static readonly object lockObject= new object();
         private readonly string bufferFilename;
         private readonly int bufferSize;
         private readonly string serverUrl;
@@ -246,11 +246,11 @@ namespace SensorsData.Analytics
 
         public virtual void Send(Dictionary<string, Object> message)
         {
-            lock (jsonSerializer)
+            lock (lockObject)
             {
                 try
                 {
-                    string recordString = jsonSerializer.Serialize(message) + "\n";
+                    string recordString = JsonConvert.SerializeObject(message) + "\n";
                     mutex.WaitOne();
                     fileStream.Seek(0, SeekOrigin.End);
                     byte[] bytes = Encoding.UTF8.GetBytes(recordString);
@@ -266,7 +266,7 @@ namespace SensorsData.Analytics
 
         public void Flush()
         {
-            lock (jsonSerializer)
+            lock (lockObject)
             {
                 mutex.WaitOne();
                 fileStream.Seek(0, SeekOrigin.Begin);
@@ -371,8 +371,6 @@ namespace SensorsData.Analytics
         private readonly static int DEFAULT_TIME_OUT_SECOND = 30;
 
         private readonly List<Dictionary<string, Object>> messageList;
-        private readonly JavaScriptSerializer jsonSerializer;
-
 
         private readonly string serverUrl;
         private readonly int bulkSize;
@@ -388,7 +386,6 @@ namespace SensorsData.Analytics
         public BatchConsumer(string serverUrl, int bulkSize, int requestTimeoutSecond, bool throwException)
         {
             messageList = new List<Dictionary<string, object>>();
-            jsonSerializer = new JavaScriptSerializer();
             this.serverUrl = serverUrl;
             this.bulkSize = Math.Min(MAX_FLUSH_BULK_SIZE, bulkSize);
             this.throwException = throwException;
@@ -418,7 +415,7 @@ namespace SensorsData.Analytics
                     string sendingData;
                     try
                     {
-                        sendingData = jsonSerializer.Serialize(batchList);
+                        sendingData = JsonConvert.SerializeObject(batchList);
                     }
                     catch (Exception exception)
                     {
