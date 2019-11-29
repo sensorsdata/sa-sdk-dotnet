@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Net;
 using System.Text;
@@ -123,7 +123,8 @@ namespace SensorsData.Analytics
                 this.outputStream = new FileStream(fileName, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
                 this.fileName = fileName;
                 this.refCount = 0;
-                String mutexName = "Global\\SensorsAnalytics " + Path.GetFullPath(fileName).Replace('\\', '_');
+                //String mutexName = "Global/SensorsAnalytics " + Path.GetFullPath(fileName).Replace('\\', '_');
+                String mutexName = DateTime.Now.ToString("yyyyMMdd");
                 this.mutex = new Mutex(false, mutexName);
             }
 
@@ -238,7 +239,8 @@ namespace SensorsData.Analytics
             this.serverUrl = serverUrl;
 
             this.fileStream = new FileStream(bufferFilename, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite);
-            string mutexName = "Global\\SensorsAnalytics " + Path.GetFullPath(bufferFilename).Replace('\\', '_');
+            //string mutexName = "Global/SensorsAnalytics " + Path.GetFullPath(bufferFilename).Replace('\\', '_');
+            string mutexName = DateTime.Now.ToString("yyyyMMdd");
             this.mutex = new Mutex(false, mutexName);
         }
 
