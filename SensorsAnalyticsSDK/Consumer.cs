@@ -120,7 +120,8 @@ namespace SensorsData.Analytics
                 this.outputStream = new FileStream(fileName, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
                 this.fileName = fileName;
                 this.refCount = 0;
-                string mutexName = DateTime.Now.ToString("yyyyMMdd");
+                string mutexName = "Global\\SensorsAnalytics " + Path.GetFullPath(fileName).Replace('\\', '_').Replace('/', '_');
+                Console.WriteLine(mutexName);
                 this.mutex = new Mutex(false, mutexName);
             }
 
@@ -239,7 +240,7 @@ namespace SensorsData.Analytics
             this.serverUrl = serverUrl;
 
             this.fileStream = new FileStream(bufferFilename, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite);
-            string mutexName = DateTime.Now.ToString("yyyyMMdd");
+            string mutexName = "Global\\SensorsAnalytics " + Path.GetFullPath(bufferFilename).Replace('\\', '_').Replace('/', '_');
             this.mutex = new Mutex(false, mutexName);
         }
 
