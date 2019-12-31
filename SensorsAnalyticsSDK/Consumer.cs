@@ -4,9 +4,8 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Collections.Generic;
-using System.Web.Script.Serialization;
-using System.Runtime.Serialization.Formatters.Binary;
 using System.IO.Compression;
+using Newtonsoft.Json;
 
 namespace SensorsData.Analytics
 {
@@ -25,8 +24,6 @@ namespace SensorsData.Analytics
     public class ConcurrentLoggingConsumer : IConsumer
     {
         private static readonly int BUFFER_LIMITATION = 1 * 1024 * 1024 * 1024; // 1G
-
-        private readonly JavaScriptSerializer jsonSerializer = new JavaScriptSerializer();
         private readonly String filenamePrefix;
         private readonly StringBuilder messageBuffer;
         private readonly int bufferSize;
@@ -51,7 +48,7 @@ namespace SensorsData.Analytics
                 {
                     try
                     {
-                        messageBuffer.Append(jsonSerializer.Serialize(message));
+                        messageBuffer.Append(JsonConvert.SerializeObject(message));
                         messageBuffer.Append("\r\n");
                     }
                     catch (Exception e)
@@ -66,7 +63,7 @@ namespace SensorsData.Analytics
 
                 if (messageBuffer.Length >= bufferSize)
                 {
-                    this.Flush();
+                    Flush();
                 }
             }
         }
@@ -123,7 +120,7 @@ namespace SensorsData.Analytics
                 this.outputStream = new FileStream(fileName, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
                 this.fileName = fileName;
                 this.refCount = 0;
-                String mutexName = "Global\\SensorsAnalytics " + Path.GetFullPath(fileName).Replace('\\', '_');
+                string mutexName = DateTime.Now.ToString("yyyyMMdd");
                 this.mutex = new Mutex(false, mutexName);
             }
 
@@ -219,9 +216,13 @@ namespace SensorsData.Analytics
         }
     }
 
+    /// <summary>
+    /// 因为并发性能比较差，已不推荐使用。<br/>
+    /// 此 Consumer 的作用是将事件写入文件中，当调用 <see cref="Flush"/> 的时候将文件中的数据发往指定的服务器上。
+    /// </summary>
     public class ClientConsumer : IConsumer
     {
-        private static readonly JavaScriptSerializer jsonSerializer = new JavaScriptSerializer();
+        private static readonly object lockObject = new object();
         private readonly string bufferFilename;
         private readonly int bufferSize;
         private readonly string serverUrl;
@@ -238,7 +239,7 @@ namespace SensorsData.Analytics
             this.serverUrl = serverUrl;
 
             this.fileStream = new FileStream(bufferFilename, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite);
-            string mutexName = "Global\\SensorsAnalytics " + Path.GetFullPath(bufferFilename).Replace('\\', '_');
+            string mutexName = DateTime.Now.ToString("yyyyMMdd");
             this.mutex = new Mutex(false, mutexName);
         }
 
@@ -246,11 +247,11 @@ namespace SensorsData.Analytics
 
         public virtual void Send(Dictionary<string, Object> message)
         {
-            lock (jsonSerializer)
+            lock (lockObject)
             {
                 try
                 {
-                    string recordString = jsonSerializer.Serialize(message) + "\n";
+                    string recordString = JsonConvert.SerializeObject(message) + "\n";
                     mutex.WaitOne();
                     fileStream.Seek(0, SeekOrigin.End);
                     byte[] bytes = Encoding.UTF8.GetBytes(recordString);
@@ -266,7 +267,7 @@ namespace SensorsData.Analytics
 
         public void Flush()
         {
-            lock (jsonSerializer)
+            lock (lockObject)
             {
                 mutex.WaitOne();
                 fileStream.Seek(0, SeekOrigin.Begin);
@@ -334,7 +335,7 @@ namespace SensorsData.Analytics
 
             var request = (HttpWebRequest)WebRequest.Create(serverUrl);
             request.Method = "POST";
-            request.Timeout = 3;
+            request.Timeout = 30 * 1000;
             var data = Encoding.ASCII.GetBytes(requestBody);
             using (var stream = request.GetRequestStream())
             {
@@ -369,11 +370,7 @@ namespace SensorsData.Analytics
     {
         private readonly static int MAX_FLUSH_BULK_SIZE = 50;
         private readonly static int DEFAULT_TIME_OUT_SECOND = 30;
-
         private readonly List<Dictionary<string, Object>> messageList;
-        private readonly JavaScriptSerializer jsonSerializer;
-
-
         private readonly string serverUrl;
         private readonly int bulkSize;
         private readonly int requestTimeoutMillisecond;
@@ -388,7 +385,6 @@ namespace SensorsData.Analytics
         public BatchConsumer(string serverUrl, int bulkSize, int requestTimeoutSecond, bool throwException)
         {
             messageList = new List<Dictionary<string, object>>();
-            jsonSerializer = new JavaScriptSerializer();
             this.serverUrl = serverUrl;
             this.bulkSize = Math.Min(MAX_FLUSH_BULK_SIZE, bulkSize);
             this.throwException = throwException;
@@ -418,7 +414,7 @@ namespace SensorsData.Analytics
                     string sendingData;
                     try
                     {
-                        sendingData = jsonSerializer.Serialize(batchList);
+                        sendingData = JsonConvert.SerializeObject(batchList);
                     }
                     catch (Exception exception)
                     {
