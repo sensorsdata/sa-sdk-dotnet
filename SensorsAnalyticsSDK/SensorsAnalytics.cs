@@ -1,14 +1,13 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Text;
 using System.Text.RegularExpressions;
 
 namespace SensorsData.Analytics
 {
     public class SensorsAnalytics
     {
-        private static readonly String SDK_VERSION = "1.3";
+        private static readonly String SDK_VERSION = "2.0.1";
         private static readonly Regex KEY_PATTERN = new Regex("^((?!^distinct_id$|^original_id$|^time$|^properties$|^id$|^first_id$|^second_id$|^users$|^events$|^event$|^user_id$|^date$|^datetime$)[a-zA-Z_$][a-zA-Z\\d_$]{0,99})$", RegexOptions.IgnoreCase);
         private static readonly DateTime EPOCH_TIME = TimeZone.CurrentTimeZone.ToLocalTime(new DateTime(1970, 1, 1, 0, 0, 0, 0));
         private IConsumer consumer;
@@ -252,6 +251,27 @@ namespace SensorsData.Analytics
         }
 
         /// <summary>
+        /// 设置物品
+        /// </summary>
+        /// <param name="itemType">物品所属类型</param>
+        /// <param name="itemId">物品 ID</param>
+        /// <param name="properties">相关属性</param>
+        public void ItemSet(String itemType, String itemId, Dictionary<String, Object> properties)
+        {
+            AddItem(itemType, itemId, "item_set", properties);
+        }
+
+        /// <summary>
+        /// 删除物品
+        /// </summary>
+        /// <param name="itemType">物品所属类型</param>
+        /// <param name="itemId">物品 ID</param>
+        public void ItemDelete(String itemType, String itemId)
+        {
+            AddItem(itemType, itemId, "item_delete", null);
+        }
+
+        /// <summary>
         /// 立即发送缓存中的所有日志
         /// </summary>
         public void Flush()
@@ -264,6 +284,59 @@ namespace SensorsData.Analytics
             this.consumer.Close();
         }
 
+        private void AddItem(String itemType, String itemId, String actionType, Dictionary<String, Object> properties)
+        {
+            AssertKeyWithRegex("Item Type", itemType);
+            AssertKey("Item Id", itemId);
+            AssertProperties(actionType, properties);
+
+            // Event time
+            long time = (long)(DateTime.Now - EPOCH_TIME).TotalMilliseconds;
+            if (properties != null && properties.ContainsKey("$time"))
+            {
+                DateTime eventTime = (DateTime)properties["$time"];
+                properties.Remove("$time");
+                time = (long)(eventTime - EPOCH_TIME).TotalMilliseconds;
+            }
+
+            String eventProject = null;
+            if (properties != null && properties.ContainsKey("$project"))
+            {
+                eventProject = (String)properties["$project"];
+                properties.Remove("$project");
+            }
+            Dictionary<String, Object> eventProperties = new Dictionary<String, Object>();
+            if (properties != null)
+            {
+                foreach (KeyValuePair<String, Object> kvp in properties)
+                {
+                    if (kvp.Value is DateTime)
+                    {
+                        eventProperties[kvp.Key] = ((DateTime)kvp.Value).ToString("yyyy-MM-dd HH:mm:ss.fff");
+                    }
+                    else
+                    {
+                        eventProperties[kvp.Key] = kvp.Value;
+                    }
+                }
+            }
+
+            Dictionary<String, String> libProperties = GetLibProperties();
+            Dictionary<String, Object> evt = new Dictionary<String, Object>();
+            evt.Add("type", actionType);
+            evt.Add("time", time);
+            evt.Add("properties", eventProperties);
+            evt.Add("lib", libProperties);
+
+            if (eventProject != null)
+            {
+                evt.Add("project", eventProject);
+            }
+            evt.Add("item_type", itemType);
+            evt.Add("item_id", itemId);
+
+            this.consumer.Send(evt);
+        }
 
         private void AssertKey(String type, String key)
         {

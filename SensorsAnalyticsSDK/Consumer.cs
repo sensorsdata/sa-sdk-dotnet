@@ -121,7 +121,6 @@ namespace SensorsData.Analytics
                 this.fileName = fileName;
                 this.refCount = 0;
                 string mutexName = "Global\\SensorsAnalytics " + Path.GetFullPath(fileName).Replace('\\', '_').Replace('/', '_');
-                Console.WriteLine(mutexName);
                 this.mutex = new Mutex(false, mutexName);
             }
 

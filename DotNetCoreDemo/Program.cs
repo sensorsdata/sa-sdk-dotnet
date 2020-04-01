@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using SensorsData.Analytics;
 
-namespace TestSensorsAnalytics
+namespace DotNetCoreDemo
 {
 
 
@@ -13,17 +13,7 @@ namespace TestSensorsAnalytics
 
             //IConsumer consumer;
 
-
-            Console.WriteLine("Hello World222");
-            IConsumer consumer = new LoggingConsumer("/Users/zhangwei/consumer");
-            SensorsAnalytics sa = new SensorsAnalytics(consumer, true);
-            Dictionary<string, Object> dic = new Dictionary<string, object>();
-            dic.Add("productName", "iPhone 11");
-            dic.Add("productPrice", "20000");
-            sa.Track("112131", "ViewProduct", dic);
-            sa.Flush();
-            sa.Shutdown();
-            Console.WriteLine("--End--");
+            testBase();
 
             //IConsumer consumer = new LoggingConsumer("D:/test", "wsc");
             //SensorsAnalytics sa = new SensorsAnalytics(consumer, true);
@@ -100,6 +90,49 @@ namespace TestSensorsAnalytics
 
             //sa.Shutdown();
             //Console.ReadLine();
+        }
+
+        static void testBase()
+        {
+            Console.WriteLine("Hello World222");
+            IConsumer consumer = new LoggingConsumer("/Users/zhangwei/consumer");
+            SensorsAnalytics sa = new SensorsAnalytics(consumer, true);
+            Dictionary<string, Object> dic = new Dictionary<string, object>();
+            dic.Add("productName", "iPhone 11");
+            dic.Add("productPrice", "20000");
+            sa.Track("112131", "ViewProduct", dic);
+
+            sa.ItemSet("item_type1111", "item_id1111", dic);
+            sa.ItemDelete("item_type2222", "item_id2222");
+
+
+            sa.Flush();
+            sa.Shutdown();
+            Console.WriteLine("--End--");
+        }
+
+        /// <summary>
+        /// 仅测试使用
+        /// </summary>
+        static void testConsumer()
+        {
+            Console.WriteLine("--Start--");
+            //ClientConsumer 仅仅是测试使用
+            IConsumer consumer = new ClientConsumer("/Users/zhangwei/consumer/log.txt",
+                "https://newsdktest.datasink.sensorsdata.cn/sa?project=zhangwei&token=5a394d2405c147ca");
+            SensorsAnalytics sa = new SensorsAnalytics(consumer, true);
+            Dictionary<string, Object> dic = new Dictionary<string, object>();
+            dic.Add("productName", "iPhone 11");
+            dic.Add("productPrice", "20000");
+            sa.Track("112131", "ViewProduct", dic);
+
+            sa.ItemSet("item_type1111", "item_id1111", dic);
+            sa.ItemDelete("item_type2222", "item_id2222");
+
+
+            sa.Flush();
+            sa.Shutdown();
+            Console.WriteLine("--End--");
         }
     }
 }

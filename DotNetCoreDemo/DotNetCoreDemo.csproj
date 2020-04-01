@@ -4,7 +4,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp3.0</TargetFramework>
-    <RootNamespace>TestSensorsAnalytics</RootNamespace>
+    <RootNamespace>DotNetCoreDemo</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>

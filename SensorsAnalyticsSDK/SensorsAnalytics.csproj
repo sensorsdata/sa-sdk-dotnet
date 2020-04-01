@@ -9,11 +9,11 @@
     <!-- NuGet -->
     <OutputType>Library</OutputType>  
     <Company>Sensors Data Co., Ltd</Company>
-    <Version>2.0.0</Version>
+    <Version>2.0.1</Version>
     <Project>SensorsAnalytics C# SDK</Project>
     <Copyright>Sensors Data Co., Ltd</Copyright>
-    <Description>.NetStandard 版本库，支持 .Net4.6.1以上和 .Netcore2.0 以上</Description>
-    <PackageReleaseNotes>.NetStandard 版本库，支持. Net4.6.1 以上和 .Netcore2.0 以上</PackageReleaseNotes>
+    <Description>支持物品（Item）操作</Description>
+    <PackageReleaseNotes>支持物品（Item）操作</PackageReleaseNotes>
     <PackageIconUrl>https://avatars1.githubusercontent.com/u/15683221?s=200&amp;v=4</PackageIconUrl>
     <Owners>Sensors Data</Owners>
     <PackageProjectUrl>https://github.com/sensorsdata/sa-sdk-dotnet</PackageProjectUrl>
