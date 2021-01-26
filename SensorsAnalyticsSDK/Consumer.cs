@@ -171,6 +171,7 @@ namespace SensorsData.Analytics
                     outputStream.Seek(0, SeekOrigin.End);
                     byte[] bytes = Encoding.UTF8.GetBytes(data);
                     outputStream.Write(bytes, 0, bytes.Length);
+                    outputStream.Flush();
                     mutex.ReleaseMutex();
                 }
                 return true;

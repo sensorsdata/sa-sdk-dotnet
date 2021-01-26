@@ -9,16 +9,18 @@
     <!-- NuGet -->
     <OutputType>Library</OutputType>  
     <Company>Sensors Data Co., Ltd</Company>
-    <Version>2.0.1</Version>
+    <Version>2.0.2</Version>
     <Project>SensorsAnalytics C# SDK</Project>
     <Copyright>Sensors Data Co., Ltd</Copyright>
-    <Description>支持物品（Item）操作</Description>
-    <PackageReleaseNotes>支持物品（Item）操作</PackageReleaseNotes>
+    <Description>修复 Flush 数据落盘不全问题</Description>
+    <PackageReleaseNotes>修复 Flush 数据落盘不全问题</PackageReleaseNotes>
     <PackageIconUrl>https://avatars1.githubusercontent.com/u/15683221?s=200&amp;v=4</PackageIconUrl>
     <Owners>Sensors Data</Owners>
     <PackageProjectUrl>https://github.com/sensorsdata/sa-sdk-dotnet</PackageProjectUrl>
     <Summary>Sensors Data NetStandard SDK</Summary>
     <Title>Sensors Data CS SDK</Title>
+    <PackageVersion>2.0.2</PackageVersion>
+    <Authors>ZhangWei</Authors>
   </PropertyGroup>
 
   <ItemGroup>
