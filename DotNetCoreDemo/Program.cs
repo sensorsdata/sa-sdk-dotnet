@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using SensorsData.Analytics;
 
 namespace DotNetCoreDemo
@@ -11,85 +13,150 @@ namespace DotNetCoreDemo
         static void Main(string[] args)
         {
 
-            //IConsumer consumer;
 
-            testBase();
+            testProfileAppend();
 
-            //IConsumer consumer = new LoggingConsumer("D:/test", "wsc");
-            //SensorsAnalytics sa = new SensorsAnalytics(consumer, true);
+        }
 
-            //Console.WriteLine("1:");
-            //sa.Track("333", "helloword");
+        static void testProfileAppend()
+        {
+            IConsumer consumer = new NewClientConsumer("http://newsdktest.datasink.sensorsdata.cn/sa?project=zhangwei&token=5a394d2405c147ca", "/Users/zhangwei/consumer/sss.txt", 10, 10 * 1000);
+            SensorsAnalytics sa = new SensorsAnalytics(consumer, true);
 
-            //Console.WriteLine("2:");
-            //Dictionary<string, Object> dic2 = new Dictionary<string, object>();
-            //dic2.Add("wsc1", "王守闯");
-            //sa.Track("333", "helloword1", dic2);
+            sa.ProfileAppend("12112", "aaa", "bbb");
+            sa.Flush();
+            Thread.Sleep(3000);
+            Console.WriteLine("1231231");
+            sa.Shutdown();
+            Console.WriteLine("--End--");
+        }
 
-            //Console.WriteLine("3:");
-            //sa.TrackSignUp("333-444", "333");
+        static void testTrackNull() {
+            IConsumer consumer = new NewClientConsumer("http://newsdktest.datasink.sensorsdata.cn/sa?project=zhangwei&token=5a394d2405c147ca", "/Users/zhangwei/consumer/sss.txt", 10, 10 * 1000);
+            SensorsAnalytics sa = new SensorsAnalytics(consumer, true);
 
-            //Console.WriteLine("4:");
-            //Dictionary<string, Object> dic4 = new Dictionary<string, object>();
-            //dic2.Add("mingcheng", "王守闯");
-            //sa.TrackSignUp("333-444", "333", dic2);
+            Dictionary<string, Object> dic = new Dictionary<string, object>();
+            dic.Add("productName", "iPhone 11");
+            dic.Add("productPrice", "20000");
+            Console.WriteLine("1111===" + DateTime.Now.ToLongTimeString());
 
-            //Console.WriteLine("5:");
-            //Dictionary<string, Object> dic5 = new Dictionary<string, object>();
-            //dic5.Add("mingcheng", "花肚皮");
-            //sa.ProfileSet("333-444", dic5);
+            //sa.Track("112131", "ViewProduct22", dic);
 
-            //Console.WriteLine("6:");
-            //sa.ProfileSet("333-444", "mingcheng", "花肚皮update");
+            Thread.Sleep(3000);
+            Console.WriteLine("1231231");
+            sa.Shutdown();
+            Console.WriteLine("--End--");
+        }
+
+        static void testFileNotFound()
+        {
+            Console.WriteLine("5555555");
+            IConsumer consumer = new NewClientConsumer("http://newsdktest.datasink.sensorsdata.cn/sa?project=zhangwei&token=5a394d2405c147ca", "", 10, 10 * 1000);
+            SensorsAnalytics sa = new SensorsAnalytics(consumer, true);
+            Dictionary<string, Object> dic = new Dictionary<string, object>();
+            dic.Add("productName", "iPhone 11");
+            dic.Add("productPrice", "20000");
+            Console.WriteLine("1111===" + DateTime.Now.ToLongTimeString());
+
+            //sa.TrackSignUp("8888", "112131", dic);
+
+            //sa.Track("112131", "ViewProduct22", dic);
+
+            sa.ItemSet("item_type1111", "item_id1111", dic);
+            //sa.ItemDelete("item_type2222", "item_id2222");
+            Console.WriteLine("3333===" + DateTime.Now.ToLongTimeString());
+
+            sa.Flush();
+
+            Console.WriteLine("222222");
+
+            Thread.Sleep(3000);
+            Console.WriteLine("1231231");
+            sa.Shutdown();
+            Console.WriteLine("--End--");
+            //sa.ItemSet("item_type1111", "item_id1111", dic);
+            Thread.Sleep(2000);
+            Console.WriteLine("--End22--");
+        }
 
 
-            //Console.WriteLine("7:");
-            //sa.ProfileIncrement("333-444", "nnlingling", 30);
+        static void testThreadClient()
+        {
 
-            //Console.WriteLine("8:");
-            //Dictionary<string, Object> dic8 = new Dictionary<string, object>();
-            //List<string> like = new List<string>();
-            //like.Add("苹果");
-            //like.Add("橘子");
-            //dic8.Add("mingcheng", "花肚皮1");
-            //dic8.Add("like", like);
-            //sa.ProfileSet("333-444", dic8);
+            IConsumer consumer = new NewClientConsumer("http://newsdktest.datasink.sensorsdata.cn/sa?project=zhangwei&token=5a394d2405c147ca", "/Users/zhangwei/consumer/sss.txt", 10, 10 * 1000);
+            SensorsAnalytics sa = new SensorsAnalytics(consumer, true);
+            Dictionary<string, Object> dic = new Dictionary<string, object>();
+            dic.Add("productName", "iPhone 11");
+            dic.Add("productPrice", "20000");
+            Console.WriteLine("1111===" + DateTime.Now.ToLongTimeString());
 
-            //Console.WriteLine("9:");
-            //Dictionary<string, Object> dic9 = new Dictionary<string, object>();
-            //List<string> like9 = new List<string>();
-            //like.Add("苹果1");
-            //like.Add("橘子1");
-            //dic9.Add("like", like9);
-            //sa.ProfileAppend("333-444", dic9);
+            //sa.TrackSignUp("8888", "112131", dic);
 
-            //Console.WriteLine("10:");
-            //Dictionary<string, Object> dic10 = new Dictionary<string, object>();
-            //dic10.Add("sbyte1", (sbyte)1);
-            //dic10.Add("short1", (short)1);
-            //dic10.Add("int1", (int)1);
-            //dic10.Add("long1", (long)1);
-            //dic10.Add("byte1", (byte)1);
-            //dic10.Add("ushort1", (ushort)1);
-            //dic10.Add("uint1", (uint)1);
-            //dic10.Add("ulong1", (ulong)1);
-            //dic10.Add("decimal1", (decimal)1);
-            //dic10.Add("Single1", (Single)1);
-            //dic10.Add("float1", (float)1);
-            //dic10.Add("double1", (double)1);
-            //dic10.Add("string1", "string");
-            //dic10.Add("boolean1", true);
-            //dic10.Add("DateTime4", DateTime.Now);
-            //List<string> list = new List<string>();
-            //list.Add("逢佳节");
-            //list.Add("稳德福");
-            //dic10.Add("list1", list);
+            //sa.Track("112131", "ViewProduct22", dic);
 
-            //sa.Track("555", "wsc_type", dic10);
-            //sa.ProfileSet("555", dic10);
+            sa.ItemSet("item_type1111", "item_id1111", dic);
+            //sa.ItemDelete("item_type2222", "item_id2222");
+            Console.WriteLine("3333===" + DateTime.Now.ToLongTimeString());
 
-            //sa.Shutdown();
-            //Console.ReadLine();
+            sa.Flush();
+
+            Console.WriteLine("222222");
+
+            Thread.Sleep(5000);
+            Console.WriteLine("1231231");
+            sa.Shutdown();
+            Console.WriteLine("--End--");
+
+
+        }
+
+        static void batchTest()
+        {
+            IConsumer consumer = new BatchConsumer("http://newsdktest.datasink.sensorsdata.cn/sa?project=zhangwei&token=5a394d2405c147ca");
+            SensorsAnalytics sa = new SensorsAnalytics(consumer, true);
+            Dictionary<string, Object> dic = new Dictionary<string, object>();
+            dic.Add("productName", "iPhone 11");
+            dic.Add("productPrice", "20000");
+            sa.Track("112131", "ViewProduct", dic);
+            sa.Flush();
+            Thread.Sleep(15 * 1000);
+            sa.Shutdown();
+        }
+
+        static void testThread()
+        {
+            //Task task = new Task(() =>
+            //{
+            //    Thread.Sleep(100);
+            //    Console.WriteLine($"hello, task1的线程ID为{Thread.CurrentThread.ManagedThreadId}");
+            //});
+            //task.Start();
+
+            //Console.ReadKey();
+
+            Console.WriteLine("44444444");
+
+            IConsumer consumer = new NewClientConsumer("http://newsdktest.datasink.sensorsdata.cn/sa?project=zhangwei&token=5a394d2405c147ca", "/Users/zhangwei/consumer", 10, 10*1000);
+            SensorsAnalytics sa = new SensorsAnalytics(consumer, true);
+            Dictionary<string, Object> dic = new Dictionary<string, object>();
+            dic.Add("productName", "iPhone 11");
+            dic.Add("productPrice", "20000");
+            sa.Track("112131", "ViewProduct", dic);
+
+            //sa.ItemSet("item_type1111", "item_id1111", dic);
+            //sa.ItemDelete("item_type2222", "item_id2222");
+            Console.WriteLine("3333");
+
+            sa.Flush();
+
+            Console.WriteLine("222222");
+
+            Thread.Sleep(15000);
+            Console.WriteLine("1231231");
+            sa.Shutdown();
+            Console.WriteLine("--End--");
+
+
         }
 
         static void testBase()

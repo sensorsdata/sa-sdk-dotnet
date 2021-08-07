@@ -9,17 +9,17 @@
     <!-- NuGet -->
     <OutputType>Library</OutputType>  
     <Company>Sensors Data Co., Ltd</Company>
-    <Version>2.0.2</Version>
+    <Version>2.0.3</Version>
     <Project>SensorsAnalytics C# SDK</Project>
     <Copyright>Sensors Data Co., Ltd</Copyright>
-    <Description>修复 Flush 数据落盘不全问题</Description>
-    <PackageReleaseNotes>修复 Flush 数据落盘不全问题</PackageReleaseNotes>
+    <Description>新增针对客户端使用场景的 NewClientConsumer</Description>
+    <PackageReleaseNotes>新增针对客户端使用场景的 NewClientConsumer</PackageReleaseNotes>
     <PackageIconUrl>https://avatars1.githubusercontent.com/u/15683221?s=200&amp;v=4</PackageIconUrl>
     <Owners>Sensors Data</Owners>
     <PackageProjectUrl>https://github.com/sensorsdata/sa-sdk-dotnet</PackageProjectUrl>
     <Summary>Sensors Data NetStandard SDK</Summary>
     <Title>Sensors Data CS SDK</Title>
-    <PackageVersion>2.0.2</PackageVersion>
+    <PackageVersion>2.0.3</PackageVersion>
     <Authors>ZhangWei</Authors>
   </PropertyGroup>
 

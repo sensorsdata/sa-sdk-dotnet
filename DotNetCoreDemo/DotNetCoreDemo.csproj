@@ -8,10 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SensorsAnalyticsSDK\SensorsAnalytics.csproj">
-    </ProjectReference>
+    <Compile Remove="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Remove="Properties\AssemblyInfo.cs" />
+    <ProjectReference Include="..\SensorsAnalyticsSDK\SensorsAnalytics.csproj" />
   </ItemGroup>
  </Project>
