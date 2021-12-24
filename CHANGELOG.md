@@ -1,3 +1,6 @@
+## 2.0.4 (2021-11-24)
+* 修复: 事件、item、Profile 操作时属性值为 null 丢失数据的问题
+
 ## 2.0.3 (2021-08-07)
 * 修复: ProfileAppend 数据校验错误
 * 新增: 针对客户端使用场景的 NewClientConsumer

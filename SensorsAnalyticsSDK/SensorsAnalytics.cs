@@ -7,7 +7,7 @@ namespace SensorsData.Analytics
 {
     public class SensorsAnalytics
     {
-        private static readonly String SDK_VERSION = "2.0.3";
+        private static readonly String SDK_VERSION = "2.0.4";
         private static readonly Regex KEY_PATTERN = new Regex("^((?!^distinct_id$|^original_id$|^time$|^properties$|^id$|^first_id$|^second_id$|^users$|^events$|^event$|^user_id$|^date$|^datetime$)[a-zA-Z_$][a-zA-Z\\d_$]{0,99})$", RegexOptions.IgnoreCase);
         private static readonly DateTime EPOCH_TIME = TimeZone.CurrentTimeZone.ToLocalTime(new DateTime(1970, 1, 1, 0, 0, 0, 0));
         private IConsumer consumer;
@@ -372,10 +372,27 @@ namespace SensorsData.Analytics
             {
                 return;
             }
+            List<String> keysList = new List<string>();
+            bool isFoundEmptyKey = false;
             foreach (KeyValuePair<String, Object> kvp in properties)
             {
                 string key = kvp.Key;
                 Object value = kvp.Value;
+               
+                ////判断 value 是否 null
+                if (value == null)
+                {
+                    keysList.Add(key);
+                    Console.WriteLine("The key [ " + key +" ]'s value is null, it will be ignored.");
+                    continue;
+                }
+                //判断 key 是否为空
+                if (key == null || key.Length < 1)
+                {
+                    isFoundEmptyKey = true;
+                    Console.WriteLine("The key is empty, it will be ignored.");
+                    continue;
+                }
 
                 AssertKeyWithRegex("property", kvp.Key);
 
@@ -402,8 +419,21 @@ namespace SensorsData.Analytics
 
                 if (eventType == "profile_append" && !(value is List<string>))
                 {
-                    throw new ArgumentException("The property value of PROFILE_INCREMENT should be a List<String>.");
+                    throw new ArgumentException("The property value of PROFILE_APPEND should be a List<String>.");
                 }
+            }
+            // 删除 value = null 的数据
+            if (keysList.Count > 0)
+            {
+                foreach (String key in keysList)
+                {
+                    properties.Remove(key);
+                }
+            }
+            //删除 key 为空字符的数据
+            if (isFoundEmptyKey)
+            {
+                properties.Remove("");
             }
         }
 
@@ -434,99 +464,91 @@ namespace SensorsData.Analytics
 
         private void AddEvent(String distinctId, String originDistinceId, String actionType, String eventName, Dictionary<String, Object> properties)
         {
-            try
+            AssertKey("Distinct Id", distinctId);
+            AssertProperties(actionType, properties);
+            if (actionType.Equals("track"))
             {
-                AssertKey("Distinct Id", distinctId);
-                AssertProperties(actionType, properties);
-                if (actionType.Equals("track"))
-                {
-                    AssertKey("Event Name", eventName);
-                    AssertKeyWithRegex("Event Name", eventName);
-                }
-                else if (actionType.Equals("track_signup"))
-                {
-                    AssertKey("Original Distinct Id", originDistinceId);
-                }
-
-                // Event time
-                long time = (long)(DateTime.Now - EPOCH_TIME).TotalMilliseconds;
-                if (properties != null && properties.ContainsKey("$time"))
-                {
-                    DateTime eventTime = (DateTime)properties["$time"];
-                    properties.Remove("$time");
-                    time = (long)(eventTime - EPOCH_TIME).TotalMilliseconds;
-                }
-
-                String eventProject = null;
-                if (properties != null && properties.ContainsKey("$project"))
-                {
-                    eventProject = (String)properties["$project"];
-                    properties.Remove("$project");
-                }
-
-                Dictionary<String, Object> eventProperties = new Dictionary<String, Object>();
-                if (actionType.Equals("track") || actionType.Equals("track_signup"))
-                {
-                    foreach (KeyValuePair<String, Object> kvp in superProperties)
-                    {
-                        eventProperties.Add(kvp.Key, kvp.Value);
-                    }
-                }
-                if (properties != null)
-                {
-                    foreach (KeyValuePair<String, Object> kvp in properties)
-                    {
-                        if (kvp.Value is DateTime)
-                        {
-                            eventProperties[kvp.Key] = ((DateTime)kvp.Value).ToString("yyyy-MM-dd HH:mm:ss.fff");
-                        }
-                        else
-                        {
-                            eventProperties[kvp.Key] = kvp.Value;
-                        }
-                    }
-                }
-
-                if (defaultIsLoginId && !eventProperties.ContainsKey("$is_login_id"))
-                {
-                    eventProperties.Add("$is_login_id", true);
-                }
-
-                Dictionary<String, String> libProperties = GetLibProperties();
-                Dictionary<String, Object> evt = new Dictionary<String, Object>();
-                evt.Add("type", actionType);
-                evt.Add("time", time);
-                evt.Add("distinct_id", distinctId);
-                evt.Add("properties", eventProperties);
-                evt.Add("lib", libProperties);
-
-                if (eventProject != null)
-                {
-                    evt.Add("project", eventProject);
-                }
-
-                if (enableTimeFree)
-                {
-                    evt.Add("time_free", true);
-                }
-
-                if (actionType.Equals("track"))
-                {
-                    evt.Add("event", eventName);
-                }
-                else if (actionType.Equals("track_signup"))
-                {
-                    evt.Add("event", eventName);
-                    evt.Add("original_id", originDistinceId);
-                }
-
-                this.consumer.Send(evt);
+                AssertKey("Event Name", eventName);
+                AssertKeyWithRegex("Event Name", eventName);
             }
-            catch (Exception e)
+            else if (actionType.Equals("track_signup"))
             {
-                Console.WriteLine(e.Message + "\n" + e.StackTrace);
+                AssertKey("Original Distinct Id", originDistinceId);
             }
 
+            // Event time
+            long time = (long)(DateTime.Now - EPOCH_TIME).TotalMilliseconds;
+            if (properties != null && properties.ContainsKey("$time"))
+            {
+                DateTime eventTime = (DateTime)properties["$time"];
+                properties.Remove("$time");
+                time = (long)(eventTime - EPOCH_TIME).TotalMilliseconds;
+            }
+
+            String eventProject = null;
+            if (properties != null && properties.ContainsKey("$project"))
+            {
+                eventProject = (String)properties["$project"];
+                properties.Remove("$project");
+            }
+
+            Dictionary<String, Object> eventProperties = new Dictionary<String, Object>();
+            if (actionType.Equals("track") || actionType.Equals("track_signup"))
+            {
+                foreach (KeyValuePair<String, Object> kvp in superProperties)
+                {
+                    eventProperties.Add(kvp.Key, kvp.Value);
+                }
+            }
+            if (properties != null)
+            {
+                foreach (KeyValuePair<String, Object> kvp in properties)
+                {
+                    if (kvp.Value is DateTime)
+                    {
+                        eventProperties[kvp.Key] = ((DateTime)kvp.Value).ToString("yyyy-MM-dd HH:mm:ss.fff");
+                    }
+                    else
+                    {
+                        eventProperties[kvp.Key] = kvp.Value;
+                    }
+                }
+            }
+
+            if (defaultIsLoginId && !eventProperties.ContainsKey("$is_login_id"))
+            {
+                eventProperties.Add("$is_login_id", true);
+            }
+
+            Dictionary<String, String> libProperties = GetLibProperties();
+            Dictionary<String, Object> evt = new Dictionary<String, Object>();
+            evt.Add("type", actionType);
+            evt.Add("time", time);
+            evt.Add("distinct_id", distinctId);
+            evt.Add("properties", eventProperties);
+            evt.Add("lib", libProperties);
+
+            if (eventProject != null)
+            {
+                evt.Add("project", eventProject);
+            }
+
+            if (enableTimeFree)
+            {
+                evt.Add("time_free", true);
+            }
+
+            if (actionType.Equals("track"))
+            {
+                evt.Add("event", eventName);
+            }
+            else if (actionType.Equals("track_signup"))
+            {
+                evt.Add("event", eventName);
+                evt.Add("original_id", originDistinceId);
+            }
+
+            this.consumer.Send(evt);
         }
     }
 }

@@ -11,7 +11,7 @@ namespace DotNetFrameworkDemo
         static void Main(string[] args)
         {
 
-            testThread();
+            testBase();
         }
 
         static void batchTest()
@@ -71,8 +71,15 @@ namespace DotNetFrameworkDemo
             IConsumer consumer = new LoggingConsumer("/Users/zhangwei/consumer");
             SensorsAnalytics sa = new SensorsAnalytics(consumer, true);
             Dictionary<string, Object> dic = new Dictionary<string, object>();
+            dic.Add("may_be_null1", null);
             dic.Add("productName", "iPhone 11");
             dic.Add("productPrice", "20000");
+            dic.Add("may_be_null2", null);
+            dic.Add("address", "9999999999");
+            dic.Add("may_be_null3", null);
+            dic.Add("empty_str", "");
+            dic.Add("", "sdsd");
+
             sa.Track("112131", "ViewProduct", dic);
 
             sa.ItemSet("item_type1111", "item_id1111", dic);
