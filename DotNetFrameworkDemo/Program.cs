@@ -11,7 +11,7 @@ namespace DotNetFrameworkDemo
         static void Main(string[] args)
         {
 
-            testBase();
+            testThread();
         }
 
         static void batchTest()
@@ -27,6 +27,14 @@ namespace DotNetFrameworkDemo
             sa.Shutdown();
         }
 
+        class MyCallback : ICallback
+        {
+            public void OnFailed(FailedData failedData)
+            {
+                Console.WriteLine($"errortype:${failedData.errorType}\n message:${failedData.failedMessage} \n data:${failedData.failedData?.ToString()}");
+            }
+        }
+
         static void testThread()
         {
             //Task task = new Task(() =>
@@ -38,7 +46,10 @@ namespace DotNetFrameworkDemo
 
             //Console.ReadKey();
 
-            IConsumer consumer = new NewClientConsumer("http://newsdktest.datasink.sensorsdata.cn/sa?project=zhangwei&token=5a394d2405c147ca", "/Users/zhangwei/consumer/sss.txt", 10, 10 * 1000);
+       
+
+            IConsumer consumer = new NewClientConsumer("http://newsdktest.datasink.sensorsda2ta.cn/sa?project=zhangwei&token=5a394d2405c147ca",
+                "/Users/zhangwei/consumer/sss.txt", 10, 10 * 1000, new MyCallback());
             SensorsAnalytics sa = new SensorsAnalytics(consumer, true);
             Dictionary<string, Object> dic = new Dictionary<string, object>();
             dic.Add("productName", "iPhone 11");
@@ -51,15 +62,15 @@ namespace DotNetFrameworkDemo
 
             //sa.ItemSet("item_type1111", "item_id1111", dic);
             //sa.ItemDelete("item_type2222", "item_id2222");
-            Console.WriteLine("3333===" + DateTime.Now.ToLongTimeString());
 
-            sa.Flush();
+            //sa.Flush();
 
             Console.WriteLine("222222");
 
-            Thread.Sleep(5000);
+            Thread.Sleep(2000);
             Console.WriteLine("1231231");
             sa.Shutdown();
+            Thread.Sleep(2000);
             Console.WriteLine("--End--");
 
 

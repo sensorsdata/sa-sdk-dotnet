@@ -1,13 +1,13 @@
 ﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Net;
 using System.Text;
 using System.Threading;
-using System.Collections.Generic;
-using System.IO.Compression;
-using Newtonsoft.Json;
-using System.Collections.Concurrent;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 
 namespace SensorsData.Analytics
 {
@@ -517,14 +517,18 @@ namespace SensorsData.Analytics
         private FileStream fileStream;
         private readonly string fileAbsolutePath;
         private long lastHttpFailTime = 0;
+        private long retryTimes = 0;
         private readonly static long HTTP_RETRY_GAP = 10 * 1000;//10 seconds
+        private ICallback callback;
 
         private Task globalTask;
         CancellationTokenSource cancellationTokenSource;
 
-        public NewClientConsumer(string serverUrl, String fileAbsolutePath) : this(serverUrl, fileAbsolutePath, MAX_FLUSH_BULK_SIZE) { }
+        public NewClientConsumer(String serverUrl, String fileAbsolutePath, ICallback callback=null)
+            : this(serverUrl, fileAbsolutePath, MAX_FLUSH_BULK_SIZE, callback) { }
 
-        public NewClientConsumer(String serverUrl, String fileAbsolutePath, int bulkSize) : this(serverUrl, fileAbsolutePath, bulkSize, DEFAULT_TIME_OUT_SECOND) { }
+        public NewClientConsumer(String serverUrl, String fileAbsolutePath, int bulkSize, ICallback callback=null)
+            : this(serverUrl, fileAbsolutePath, bulkSize, DEFAULT_TIME_OUT_SECOND, callback) { }
 
         /// <summary>
         /// NewClientConsumer Constructor
@@ -533,11 +537,12 @@ namespace SensorsData.Analytics
         /// <param name="fileAbsolutePath">日志文件的绝对路径</param>
         /// <param name="bulkSize">缓存事件数目，当缓存大于等于此数，将触发数据上报功能</param>
         /// <param name="requestTimeoutMillisecond">数据上报的网络请求超时时间，单位是 ms</param>
-        public NewClientConsumer(String serverUrl, String fileAbsolutePath, int bulkSize, int requestTimeoutMillisecond)
+        public NewClientConsumer(String serverUrl, String fileAbsolutePath, int bulkSize, int requestTimeoutMillisecond, ICallback callback=null)
         {
             this.bulkSize = Math.Min(MAX_FLUSH_BULK_SIZE, bulkSize); ;
             this.serverUrl = serverUrl;
             this.fileAbsolutePath = fileAbsolutePath;
+            this.callback = callback;
             if (requestTimeoutMillisecond <= 0)
             {
                 requestTimeoutMillisecond = DEFAULT_TIME_OUT_SECOND;
@@ -555,18 +560,21 @@ namespace SensorsData.Analytics
                 }
                 else
                 {
-                    try
+                    if (callback != null)
                     {
-                        File.Open(fileAbsolutePath, FileMode.Open);
-                    }
-                    catch (Exception e)
-                    {
-                        logE(e.Message + "\n" + e.StackTrace);
+                        callback.OnFailed(new FailedData(FailedData.TYPE_LOAD_FROME_FILE_ERROR,
+                            "Can not found log file: " + fileAbsolutePath));
                     }
                 }
+               
             }
             catch (Exception e)
             {
+                if (callback != null)
+                {
+                    callback.OnFailed(new FailedData(FailedData.TYPE_LOAD_FROME_FILE_ERROR,
+                        "Something error when load data from log file: " + e.ToString()));
+                }
                 logE(e.Message + "\n" + e.StackTrace);
             }
         }
@@ -609,37 +617,61 @@ namespace SensorsData.Analytics
 
         public void Close()
         {
-            if (cancellationTokenSource != null)
+            try
             {
-                cancellationTokenSource.Cancel();
-            }
-            if (globalTask != null && (!globalTask.IsCompleted && !globalTask.IsCanceled && !globalTask.IsFaulted))
-            {
-                Task.WaitAll(globalTask);
-            }
+                if (cancellationTokenSource != null)
+                {
+                    cancellationTokenSource.Cancel();
+                }
+                if (globalTask != null && (!globalTask.IsCompleted && !globalTask.IsCanceled && !globalTask.IsFaulted))
+                {
+                    Task.WaitAll(globalTask);
+                }
 
-            SaveCacheToFile();
+                SaveCacheToFile();
 
-            blockingList.Dispose();
-            if (fileStream != null)
-            {
-                fileStream.Close();
-                fileStream = null;
+                blockingList.Dispose();
+                if (fileStream != null)
+                {
+                    fileStream.Close();
+                    fileStream = null;
+                }
+                if (mutex != null)
+                {
+                    mutex.Close();
+                    mutex = null;
+                }
             }
-            if (mutex != null)
+            catch(Exception e)
             {
-                mutex.Close();
-                mutex = null;
+                if (callback != null)
+                {
+                    callback.OnFailed(new FailedData(FailedData. TYPE_OTHER_ERROR, "Something error when shutdown: " + e.ToString()));
+                }
+                logE("Something error when shutdown: " + e.ToString());
             }
         }
 
         public void Flush()
         {
-            long tmpGap = GetTimeStamp() - lastHttpFailTime;
-            if (tmpGap < HTTP_RETRY_GAP)
+            //尝试逻辑，避免因为网络问题不断重试
+            if(retryTimes > 10)
             {
-                log("下次重试时间还有(ms): " + (HTTP_RETRY_GAP - tmpGap));
-                return;
+                if(lastHttpFailTime == 0)
+                {
+                    lastHttpFailTime = GetTimeStamp();
+                }
+                else
+                {
+                    long tmpGap = GetTimeStamp() - lastHttpFailTime;
+                    if (tmpGap < HTTP_RETRY_GAP)
+                    {
+                        log("下次重试时间还有(ms): " + (HTTP_RETRY_GAP - tmpGap));
+                        return;
+                    }
+                    lastHttpFailTime = 0;
+                    retryTimes = 0;
+                }
             }
 
             //从队列中获取数据并将结果发送的服务端
@@ -685,7 +717,7 @@ namespace SensorsData.Analytics
                         }
                     }
 
-                    //如果取消，就将数据放回缓存列表中，并
+                    //如果取消，就将数据放回缓存列表中
                     if (count > 0)
                     {
                         stringBuilder.Append("]");
@@ -697,8 +729,9 @@ namespace SensorsData.Analytics
             }
             catch (Exception e)
             {
-                logE("数据发送失败，可在 10 秒后重试: " + e.ToString());
-                lastHttpFailTime = GetTimeStamp();
+                retryTimes++;
+                logE("数据发送失败，尝试次数:" + retryTimes +", 错误信息：" + e.ToString());
+                
             }
         }
 
@@ -710,6 +743,12 @@ namespace SensorsData.Analytics
             }
             catch (Exception exception)
             {
+                if (callback != null)
+                {
+                    callback.OnFailed(new FailedData(FailedData.TYPE_DATE_FORMAT_ERROR,
+                        "Something error when add data: " + exception.ToString()));
+                }
+
                 logE("格式化数据失败:" + exception.ToString());
                 return;
             }
@@ -745,6 +784,11 @@ namespace SensorsData.Analytics
             }
             catch (Exception exception)
             {
+                if (callback != null)
+                {
+                    callback.OnFailed(new FailedData(FailedData.TYPE_SAVE_TO_FILE_ERROR,
+                        "Something error when save data to log file: " + exception.ToString(), new List<string>(blockingList)));
+                }
                 logE("保存数据到文件中失败: " + exception.ToString());
             }
         }
@@ -771,6 +815,38 @@ namespace SensorsData.Analytics
                 var responseString = new StreamReader(response.GetResponseStream()).ReadToEnd();
                 if (response.StatusCode != HttpStatusCode.OK)
                 {
+                    if (callback != null)
+                    {
+                        callback.OnFailed(new FailedData(FailedData.TYPE_NETWORK_ERROR,
+                            "Sensors Analytics SDK send response is not 200, content: " + responseString, itemList));
+                    }
+                    else
+                    {
+                        if (itemList.Count > 0)
+                        {
+                            foreach (string str in itemList)
+                            {
+                                blockingList.Add(str);
+                            }
+                        }
+                        throw new SystemException("Sensors Analytics SDK send response is not 200, content: " + responseString);
+                    }
+                }
+                else
+                {
+                    log("数据已发送到服务器");
+                }
+            }
+            catch (Exception e)
+            {
+                if (callback != null)
+                {
+                    callback.OnFailed(new FailedData(FailedData.TYPE_NETWORK_ERROR,
+                        "Something error when send data to server: " + e.ToString(), itemList));
+                }
+                else
+                {
+                    //如果出异常，就将数据放回缓存列表中
                     if (itemList.Count > 0)
                     {
                         foreach (string str in itemList)
@@ -778,24 +854,8 @@ namespace SensorsData.Analytics
                             blockingList.Add(str);
                         }
                     }
-                    throw new SystemException("Sensors Analytics SDK send response is not 200, content: " + responseString);
+                    throw new SystemException("something wrong with HTTP request: " + e.ToString());
                 }
-                else
-                {
-                    //log("数据已发送到服务器");
-                }
-            }
-            catch (Exception e)
-            {
-                //如果出异常，就将数据放回缓存列表中
-                if (itemList.Count > 0)
-                {
-                    foreach (string str in itemList)
-                    {
-                        blockingList.Add(str);
-                    }
-                }
-                throw new SystemException("something wrong with HTTP request: " + e.ToString());
             }
         }
 
@@ -833,6 +893,75 @@ namespace SensorsData.Analytics
         {
             TimeSpan ts = DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, 0);
             return Convert.ToInt64(ts.TotalMilliseconds);
+        }
+    }
+
+    /// <summary>
+    /// 异常回调接口
+    /// </summary>
+    public interface ICallback {
+        void OnFailed(FailedData failedData);
+    }
+
+    /// <summary>
+    /// 错误数据
+    /// </summary>
+    public class FailedData
+    {
+        /// <summary>
+        /// 未标注错误类别
+        /// </summary>
+        public readonly static int TYPE_NONE = 0;
+        /// <summary>
+        /// 事件数据格式错误
+        /// </summary>
+        public readonly static int TYPE_DATE_FORMAT_ERROR = 1;
+        /// <summary>
+        /// 网络错误
+        /// </summary>
+        public readonly static int TYPE_NETWORK_ERROR = 2;
+        /// <summary>
+        /// 从日志文件中加载数据错误
+        /// </summary>
+        public readonly static int TYPE_LOAD_FROME_FILE_ERROR = 3;
+        /// <summary>
+        /// 保存数据到文件中失败
+        /// </summary>
+        public readonly static int TYPE_SAVE_TO_FILE_ERROR = 4;
+        /// <summary>
+        /// 其他错误
+        /// </summary>
+        public readonly static int TYPE_OTHER_ERROR = 5;
+        /// <summary>
+        /// 错误数据类别
+        /// </summary>
+        public int errorType = TYPE_NONE;
+        /// <summary>
+        /// 错误数据提示消息
+        /// </summary>
+        public String failedMessage;
+        /// <summary>
+        /// 错误数据：当类型是：TYPE_NETWORK_ERROR、TYPE_SAVE_TO_FILE_ERROR 时会将原数据放在该列表中
+        /// </summary>
+        public List<String> failedData;
+
+        /// <summary>
+        /// 当类型是：TYPE_NETWORK_ERROR、TYPE_SAVE_TO_FILE_ERROR 时会将原数据放在该列表中
+        /// </summary>
+        /// <param name="errorType"></param>
+        /// <param name="failedMessage"></param>
+        public FailedData(int errorType, String failedMessage) : this(errorType, failedMessage, null) { }
+
+        /// <summary>
+        /// 当类型是：TYPE_NETWORK_ERROR、TYPE_SAVE_TO_FILE_ERROR 时会将原数据放在该列表中
+        /// </summary>
+        /// <param name="errorType"></param>
+        /// <param name="failedMessage"></param>
+        /// <param name="failedData"></param>
+        public FailedData(int errorType, String failedMessage, List<String> failedData) {
+            this.errorType = errorType;
+            this.failedData = failedData;
+            this.failedMessage = failedMessage;
         }
     }
 }
