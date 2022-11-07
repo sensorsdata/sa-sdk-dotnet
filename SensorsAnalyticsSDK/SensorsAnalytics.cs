@@ -4,10 +4,10 @@ using System.Text.RegularExpressions;
 
 namespace SensorsData.Analytics
 {
-    public class SensorsAnalytics
+    public partial class SensorsAnalytics
     {
         private static readonly String SDK_VERSION = "2.1.0";
-        private static readonly Regex KEY_PATTERN = new Regex("^((?!^distinct_id$|^original_id$|^time$|^properties$|^id$|^first_id$|^second_id$|^users$|^events$|^event$|^user_id$|^date$|^datetime$)[a-zA-Z_$][a-zA-Z\\d_$]{0,99})$", RegexOptions.IgnoreCase);
+        private static readonly Regex KEY_PATTERN = new Regex("^((?!^distinct_id$|^original_id$|^time$|^properties$|^id$|^first_id$|^second_id$|^users$|^events$|^event$|^user_id$|^date$|^datetime|^user_group|^user_tag)[a-zA-Z_$][a-zA-Z\\d_$]{0,99})$", RegexOptions.IgnoreCase);
         private static readonly DateTime EPOCH_TIME = TimeZone.CurrentTimeZone.ToLocalTime(new DateTime(1970, 1, 1, 0, 0, 0, 0));
         private IConsumer consumer;
         private Dictionary<String, Object> superProperties;
@@ -19,8 +19,8 @@ namespace SensorsData.Analytics
         /// https://www.sensorsdata.cn/manual/user_identify.html
         /// </summary>
         /// <param name="consumer"></param>
-        /// <param name="defaultIsLoginId">默认使用的 distinct_id 都是注册 ID</param>
-        public SensorsAnalytics(IConsumer consumer, bool defaultIsLoginId)
+        /// <param name="defaultIsLoginId">默认使用的 distinct_id 都是注册 ID。若你使用 ID-Mapping 3.0 的接口，请保持 defaultIsLoginId=false</param>
+        public SensorsAnalytics(IConsumer consumer, bool defaultIsLoginId = false)
         {
             this.consumer = consumer;
             this.superProperties = new Dictionary<String, Object>();
@@ -339,13 +339,25 @@ namespace SensorsData.Analytics
 
         private void AssertKey(String type, String key)
         {
-            if (key == null || key.Length < 1)
+            if (key == null || key.Trim().Length < 1)
             {
-                throw new ArgumentNullException("The " + type + " is empty.");
+                throw new ArgumentNullException("The " + type + " key is empty or null.");
             }
             if (key.Length > 255)
             {
                 throw new ArgumentOutOfRangeException("The " + type + " is too long, max length is 255.");
+            }
+        }
+
+        private void AssertValue(String type, String value)
+        {
+            if (value == null || value.Trim().Length < 1)
+            {
+                throw new ArgumentNullException("The " + type + " value is empty or null.");
+            }
+            if (value.Length > 255)
+            {
+                throw new ArgumentOutOfRangeException("The " + type + " value is too long, max length is 255.");
             }
         }
 
@@ -354,7 +366,7 @@ namespace SensorsData.Analytics
             AssertKey(type, key);
             if (!KEY_PATTERN.IsMatch(key))
             {
-                throw new ArgumentException("The " + type + "'" + key + "' is invalid.");
+                throw new ArgumentException("The " + type + " key '" + key + "' is invalid.");
             }
         }
 
@@ -377,12 +389,12 @@ namespace SensorsData.Analytics
             {
                 string key = kvp.Key;
                 Object value = kvp.Value;
-               
+
                 ////判断 value 是否 null
                 if (value == null)
                 {
                     keysList.Add(key);
-                    Console.WriteLine("The key [ " + key +" ]'s value is null, it will be ignored.");
+                    Console.WriteLine("The key [ " + key + " ]'s value is null, it will be ignored.");
                     continue;
                 }
                 //判断 key 是否为空
@@ -461,7 +473,7 @@ namespace SensorsData.Analytics
         }
 
 
-        private void AddEvent(String distinctId, String originDistinceId, String actionType, String eventName, Dictionary<String, Object> properties)
+        private void AddEvent(List<SensorsAnalyticsIdentity> identities, String distinctId, String originDistinceId, String actionType, String eventName, Dictionary<String, Object> properties)
         {
             AssertKey("Distinct Id", distinctId);
             AssertProperties(actionType, properties);
@@ -492,7 +504,8 @@ namespace SensorsData.Analytics
             }
 
             Dictionary<String, Object> eventProperties = new Dictionary<String, Object>();
-            if (actionType.Equals("track") || actionType.Equals("track_signup"))
+            if ("track".Equals(actionType) || "track_signup".Equals(actionType)
+                || "track_id_bind".Equals(actionType) || "track_id_unbind".Equals(actionType))
             {
                 foreach (KeyValuePair<String, Object> kvp in superProperties)
                 {
@@ -514,10 +527,7 @@ namespace SensorsData.Analytics
                 }
             }
 
-            if (defaultIsLoginId && !eventProperties.ContainsKey("$is_login_id"))
-            {
-                eventProperties.Add("$is_login_id", true);
-            }
+            UpdateIsLoginId(eventProperties, identities);
 
             Dictionary<String, String> libProperties = GetLibProperties();
             Dictionary<String, Object> evt = new Dictionary<String, Object>();
@@ -526,6 +536,11 @@ namespace SensorsData.Analytics
             evt.Add("distinct_id", distinctId);
             evt.Add("properties", eventProperties);
             evt.Add("lib", libProperties);
+
+            if (identities != null && identities.Capacity != 0)
+            {
+                evt.Add("identities", GetIdentitiesProperties(identities));
+            }
 
             if (eventProject != null)
             {
@@ -537,17 +552,46 @@ namespace SensorsData.Analytics
                 evt.Add("time_free", true);
             }
 
-            if (actionType.Equals("track"))
+            if (eventName != null && eventName.Trim().Length > 0)
             {
                 evt.Add("event", eventName);
             }
-            else if (actionType.Equals("track_signup"))
+
+            if (actionType.Equals("track_signup"))
             {
-                evt.Add("event", eventName);
                 evt.Add("original_id", originDistinceId);
             }
 
             this.consumer.Send(evt);
+        }
+
+        private void AddEvent(String distinctId, String originDistinctId, String actionType, String eventName, Dictionary<String, Object> properties)
+        {
+            AddEvent(null, distinctId, originDistinctId, actionType, eventName, properties);
+        }
+
+        private void UpdateIsLoginId(Dictionary<String, Object> eventProperties, List<SensorsAnalyticsIdentity> identities)
+        {
+            //IDM 3.0 的逻辑
+            if (identities != null && identities.Count != 0)
+            {
+                //忽略客户设置的 is_login_id
+                eventProperties.Remove("$is_login_id");
+                foreach (SensorsAnalyticsIdentity item in identities)
+                {
+                    if (SensorsAnalyticsIdentity.LOGIN_ID.Equals(item.key))
+                    {
+                        eventProperties.Add("$is_login_id", true);
+                        break;
+                    }
+                }
+            }
+            //维持原逻辑不变
+            else if (defaultIsLoginId && !eventProperties.ContainsKey("$is_login_id"))
+            {
+                eventProperties.Add("$is_login_id", true);
+            }
+
         }
     }
 }

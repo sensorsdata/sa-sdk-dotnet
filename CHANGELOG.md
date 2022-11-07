@@ -1,6 +1,6 @@
 
 ## 2.1.0 (2022-11-07)
-* 新增：新增 C# SDK 支持 ID-Mapping 3.0
+* 新增： C# SDK 支持 ID-Mapping 3.0
 
 ## 2.0.5 (2022-4-22)
 * 修复：优化 NewClientConsumer 可能产生内存溢出的场景
