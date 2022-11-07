@@ -12,14 +12,14 @@
     <Version>2.0.4</Version>
     <Project>SensorsAnalytics C# SDK</Project>
     <Copyright>Sensors Data Co., Ltd</Copyright>
-    <Description>优化 NewClientConsumer 可能产生内存溢出的场景</Description>
-    <PackageReleaseNotes>优化 NewClientConsumer 可能产生内存溢出的场景</PackageReleaseNotes>
+    <Description>新增 C# SDK 支持 ID-Mapping 3.0</Description>
+    <PackageReleaseNotes>新增 C# SDK 支持 ID-Mapping 3.0</PackageReleaseNotes>
     <PackageIconUrl>https://avatars1.githubusercontent.com/u/15683221?s=200&amp;v=4</PackageIconUrl>
     <Owners>Sensors Data</Owners>
     <PackageProjectUrl>https://github.com/sensorsdata/sa-sdk-dotnet</PackageProjectUrl>
     <Summary>Sensors Data NetStandard SDK</Summary>
     <Title>Sensors Data CS SDK</Title>
-    <PackageVersion>2.0.5</PackageVersion>
+    <PackageVersion>2.1.0</PackageVersion>
     <Authors>ZhangWei</Authors>
   </PropertyGroup>
 
