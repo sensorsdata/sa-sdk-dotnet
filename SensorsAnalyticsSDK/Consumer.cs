@@ -516,28 +516,40 @@ namespace SensorsData.Analytics
         private Mutex mutex;
         private FileStream fileStream;
         private readonly string fileAbsolutePath;
-        private long lastHttpFailTime = 0;
-        private long retryTimes = 0;
-        private readonly static long HTTP_RETRY_GAP = 10 * 1000;//10 seconds
         private ICallback callback;
+        private Timer timer;
+        private readonly ScheduledStyle scheduledStyle;
+        private readonly object flushLock = new object();
 
         private Task globalTask;
         CancellationTokenSource cancellationTokenSource;
 
-        public NewClientConsumer(String serverUrl, String fileAbsolutePath, ICallback callback=null)
+        public NewClientConsumer(String serverUrl, String fileAbsolutePath, ICallback callback = null)
             : this(serverUrl, fileAbsolutePath, MAX_FLUSH_BULK_SIZE, callback) { }
 
-        public NewClientConsumer(String serverUrl, String fileAbsolutePath, int bulkSize, ICallback callback=null)
+        public NewClientConsumer(String serverUrl, String fileAbsolutePath, int bulkSize, ICallback callback = null)
             : this(serverUrl, fileAbsolutePath, bulkSize, DEFAULT_TIME_OUT_SECOND, callback) { }
+
+        public NewClientConsumer(String serverUrl, String fileAbsolutePath, ICallback callback = null, ScheduledStyle scheduledStyle = ScheduledStyle.DISABLED, int flushMillisecond = 1000)
+            : this(serverUrl, fileAbsolutePath, MAX_FLUSH_BULK_SIZE, callback, scheduledStyle, flushMillisecond) { }
+
+        public NewClientConsumer(String serverUrl, String fileAbsolutePath, int bulkSize, ICallback callback = null, ScheduledStyle scheduledStyle = ScheduledStyle.DISABLED, int flushMillisecond = 1000)
+            : this(serverUrl, fileAbsolutePath, bulkSize, DEFAULT_TIME_OUT_SECOND, callback, scheduledStyle, flushMillisecond) { }
+
 
         /// <summary>
         /// NewClientConsumer Constructor
         /// </summary>
         /// <param name="serverUrl">数据接收地址</param>
-        /// <param name="fileAbsolutePath">日志文件的绝对路径</param>
+        /// <param name="fileAbsolutePath">日志文件的绝对路径，需确保该文件存在</param>
         /// <param name="bulkSize">缓存事件数目，当缓存大于等于此数，将触发数据上报功能</param>
         /// <param name="requestTimeoutMillisecond">数据上报的网络请求超时时间，单位是 ms</param>
-        public NewClientConsumer(String serverUrl, String fileAbsolutePath, int bulkSize, int requestTimeoutMillisecond, ICallback callback=null)
+        /// <param name="callback">当处理数据发生异常时，会返回处理异常的数据</param>
+        /// <param name="scheduledStyle">定时上报任务。默认 <see cref="ScheduledStyle.DISABLED"/> 表示不开启定时刷新。<see cref="ScheduledStyle.ALWAYS_FLUSH"/>：开启定时任务，当触发定时任务时总是执行 Flush 操作。 <see cref="ScheduledStyle.BULKSIZE_FLUSH"/>：开启定时任务，当触发定时任务时缓存中事件数目超过 bulkSize 才会执行 Flush 操作。
+        /// 注意开启定时任务后，当调用 <see cref="SensorsAnalytics.Track(string, string)"/>方法触发事件时并且缓存中事件超过 bulkSize 也不会立即出发 <see cref="Flush"/>，而是在定时任务执行时再上报事件。
+        /// </param>
+        /// <param name="flushMillisecond">消费者线程定时执行频率，默认 1000 毫秒，最低不能小于 1000ms</param>
+        public NewClientConsumer(String serverUrl, String fileAbsolutePath, int bulkSize, int requestTimeoutMillisecond, ICallback callback = null, ScheduledStyle scheduledStyle = ScheduledStyle.DISABLED, int flushMillisecond = 1000)
         {
             this.bulkSize = Math.Min(MAX_FLUSH_BULK_SIZE, bulkSize); ;
             this.serverUrl = serverUrl;
@@ -563,10 +575,10 @@ namespace SensorsData.Analytics
                     if (callback != null)
                     {
                         callback.OnFailed(new FailedData(FailedData.TYPE_LOAD_FROME_FILE_ERROR,
-                            "Can not found log file: " + fileAbsolutePath));
+                            "Can not found log file, it is not exists: " + fileAbsolutePath));
                     }
                 }
-               
+
             }
             catch (Exception e)
             {
@@ -576,6 +588,30 @@ namespace SensorsData.Analytics
                         "Something error when load data from log file: " + e.ToString()));
                 }
                 logE(e.Message + "\n" + e.StackTrace);
+            }
+            this.scheduledStyle = scheduledStyle;
+            //指定定时任务
+            if (scheduledStyle != ScheduledStyle.DISABLED)
+            {
+                timer = new Timer(TimingProcess, scheduledStyle, Math.Max(1000, flushMillisecond), Math.Max(1000, flushMillisecond));
+                log("初始化定时任务，时间间隔：" + Math.Max(1000, flushMillisecond));
+            }
+        }
+
+        private void TimingProcess(object scheduledStyle)
+        {
+            log($"开始执行定时任务，类型是: {scheduledStyle}, 缓存中的数据条目为：{blockingList.Count}，bulkSize 为：{bulkSize}");
+            ScheduledStyle style = (ScheduledStyle)scheduledStyle;
+            if (style == ScheduledStyle.ALWAYS_FLUSH)
+            {
+                Flush();
+            }
+            else if (style == ScheduledStyle.BULKSIZE_FLUSH)
+            {
+                if (blockingList.Count >= bulkSize)
+                {
+                    Flush();
+                }
             }
         }
 
@@ -619,13 +655,24 @@ namespace SensorsData.Analytics
         {
             try
             {
+                if (timer != null)
+                {
+                    timer.Dispose();
+                }
                 if (cancellationTokenSource != null)
                 {
                     cancellationTokenSource.Cancel();
                 }
-                if (globalTask != null && (!globalTask.IsCompleted && !globalTask.IsCanceled && !globalTask.IsFaulted))
+                try
                 {
-                    Task.WaitAll(globalTask);
+                    if (globalTask != null && (!globalTask.IsCompleted && !globalTask.IsCanceled && !globalTask.IsFaulted))
+                    {
+                        Task.WaitAll(globalTask);
+                    }
+                }
+                catch (AggregateException e)
+                {
+                    logE("Wait flush task exception: " + e.ToString());
                 }
 
                 SaveCacheToFile();
@@ -642,11 +689,11 @@ namespace SensorsData.Analytics
                     mutex = null;
                 }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 if (callback != null)
                 {
-                    callback.OnFailed(new FailedData(FailedData. TYPE_OTHER_ERROR, "Something error when shutdown: " + e.ToString()));
+                    callback.OnFailed(new FailedData(FailedData.TYPE_OTHER_ERROR, "Something error when shutdown: " + e.ToString()));
                 }
                 logE("Something error when shutdown: " + e.ToString());
             }
@@ -654,37 +701,21 @@ namespace SensorsData.Analytics
 
         public void Flush()
         {
-            //尝试逻辑，避免因为网络问题不断重试
-            if(retryTimes > 10)
+            lock (flushLock)
             {
-                if(lastHttpFailTime == 0)
+                //从队列中获取数据并将结果发送的服务端
+                //如果获取的数目超过了 bulkSize 或者一定的时间 200ms 未能从队列中获取到数据并且已获取的结果大于 0 就发送数据。
+                if (blockingList.Count > 0)
                 {
-                    lastHttpFailTime = GetTimeStamp();
-                }
-                else
-                {
-                    long tmpGap = GetTimeStamp() - lastHttpFailTime;
-                    if (tmpGap < HTTP_RETRY_GAP)
+                    if (globalTask != null && (!globalTask.IsCompleted && !globalTask.IsCanceled && !globalTask.IsFaulted))
                     {
-                        log("下次重试时间还有(ms): " + (HTTP_RETRY_GAP - tmpGap));
                         return;
                     }
-                    lastHttpFailTime = 0;
-                    retryTimes = 0;
+                    cancellationTokenSource = new CancellationTokenSource();
+                    globalTask = new Task(ThreadRunner, cancellationTokenSource.Token);
+                    globalTask.Start();
+                    log("开启 Flush 工作线程，准备上报数据");
                 }
-            }
-
-            //从队列中获取数据并将结果发送的服务端
-            //如果获取的数目超过了 bulkSize 或者一定的时间 200ms 未能从队列中获取到数据并且已获取的结果大于 0 就发送数据。
-            if (blockingList.Count > 0)
-            {
-                if (globalTask != null && (!globalTask.IsCompleted && !globalTask.IsCanceled && !globalTask.IsFaulted))
-                {
-                    return;
-                }
-                cancellationTokenSource = new CancellationTokenSource();
-                globalTask = new Task(ThreadRunner, cancellationTokenSource.Token);
-                globalTask.Start();
             }
         }
 
@@ -717,21 +748,30 @@ namespace SensorsData.Analytics
                         }
                     }
 
-                    //如果取消，就将数据放回缓存列表中
+
                     if (count > 0)
                     {
-                        stringBuilder.Append("]");
-                        stringBuilder.Replace(",]", "]");
-                        SendToServer(stringBuilder.ToString(), itemList);
-                        itemList.Clear();
+                        //如果取消，就将数据放回缓存列表中
+                        if (cancellationTokenSource.IsCancellationRequested)
+                        {
+                            foreach (string str in itemList)
+                            {
+                                blockingList.Add(str);
+                            }
+                        }
+                        //如果是因为没有数据，就将已获取的发到服务器
+                        else
+                        {
+                            stringBuilder.Append("]");
+                            stringBuilder.Replace(",]", "]");
+                            SendToServer(stringBuilder.ToString(), itemList);
+                        }
                     }
                 }
             }
             catch (Exception e)
             {
-                retryTimes++;
-                logE("数据发送失败，尝试次数:" + retryTimes +", 错误信息：" + e.ToString());
-                
+                logE("数据发送失败，错误信息：" + e.ToString());
             }
         }
 
@@ -752,9 +792,13 @@ namespace SensorsData.Analytics
                 logE("格式化数据失败:" + exception.ToString());
                 return;
             }
-            if (blockingList.Count >= bulkSize)
+            //当设置定时任务的时候，bulkSize 将不起作用
+            if (this.scheduledStyle == ScheduledStyle.DISABLED)
             {
-                Flush();
+                if (blockingList.Count >= bulkSize)
+                {
+                    Flush();
+                }
             }
         }
 
@@ -899,7 +943,8 @@ namespace SensorsData.Analytics
     /// <summary>
     /// 异常回调接口
     /// </summary>
-    public interface ICallback {
+    public interface ICallback
+    {
         void OnFailed(FailedData failedData);
     }
 
@@ -958,10 +1003,32 @@ namespace SensorsData.Analytics
         /// <param name="errorType"></param>
         /// <param name="failedMessage"></param>
         /// <param name="failedData"></param>
-        public FailedData(int errorType, String failedMessage, List<String> failedData) {
+        public FailedData(int errorType, String failedMessage, List<String> failedData)
+        {
             this.errorType = errorType;
             this.failedData = failedData;
             this.failedMessage = failedMessage;
         }
+    }
+
+    /// <summary>
+    /// NewClientConsumer 定时上报任务的类型
+    /// </summary>
+    public enum ScheduledStyle
+    {
+        /// <summary>
+        /// 禁用定时任务
+        /// </summary>
+        DISABLED,
+
+        /// <summary>
+        /// 开启定时任务，当触发定时任务时总是执行 Flush 操作
+        /// </summary>
+        ALWAYS_FLUSH,
+
+        /// <summary>
+        /// 开启定时任务，当触发定时任务时缓存中事件数目超过 bulkSize 才会执行 Flush 操作
+        /// </summary>
+        BULKSIZE_FLUSH
     }
 }

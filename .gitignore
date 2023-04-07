@@ -13,4 +13,10 @@
 /DotNetFrameworkDemo/obj
 /DotNetFrameworkDemo/.DS_Store
 
+
+/SAUnitTest/.vs
+/SAUnitTest/bin
+/SAUnitTest/obj
+/SAUnitTest/.DS_Store
+
 /DotNetCoreDemo/DotNetCoreDemo.csproj.user

@@ -9,17 +9,17 @@
     <!-- NuGet -->
     <OutputType>Library</OutputType>  
     <Company>Sensors Data Co., Ltd</Company>
-    <Version>2.0.4</Version>
+    <Version>2.1.1</Version>
     <Project>SensorsAnalytics C# SDK</Project>
     <Copyright>Sensors Data Co., Ltd</Copyright>
-    <Description>新增 C# SDK 支持 ID-Mapping 3.0</Description>
-    <PackageReleaseNotes>新增 C# SDK 支持 ID-Mapping 3.0</PackageReleaseNotes>
+    <Description>新增 NewClientConsumer 支持定时刷新0</Description>
+    <PackageReleaseNotes>新增 NewClientConsumer 支持定时刷新</PackageReleaseNotes>
     <PackageIconUrl>https://avatars1.githubusercontent.com/u/15683221?s=200&amp;v=4</PackageIconUrl>
     <Owners>Sensors Data</Owners>
     <PackageProjectUrl>https://github.com/sensorsdata/sa-sdk-dotnet</PackageProjectUrl>
     <Summary>Sensors Data NetStandard SDK</Summary>
     <Title>Sensors Data CS SDK</Title>
-    <PackageVersion>2.1.0</PackageVersion>
+    <PackageVersion>2.1.1</PackageVersion>
     <Authors>ZhangWei</Authors>
   </PropertyGroup>
 
