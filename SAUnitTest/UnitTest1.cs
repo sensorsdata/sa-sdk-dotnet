@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using SensorsData.Analytics;
 using Xunit;
 
@@ -256,6 +257,5 @@ namespace SAUnitTest
             sa.Flush();
             sa.Shutdown();
         }
-
     }
 }
