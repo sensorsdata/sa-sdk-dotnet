@@ -6,7 +6,7 @@ namespace SensorsData.Analytics
 {
     public partial class SensorsAnalytics
     {
-        private static readonly String SDK_VERSION = "2.1.1";
+        private static readonly String SDK_VERSION = "2.1.2";
         private static readonly Regex KEY_PATTERN = new Regex("^((?!^distinct_id$|^original_id$|^time$|^properties$|^id$|^first_id$|^second_id$|^users$|^events$|^event$|^user_id$|^date$|^datetime|^user_group|^user_tag)[a-zA-Z_$][a-zA-Z\\d_$]{0,99})$", RegexOptions.IgnoreCase);
         private static readonly DateTime EPOCH_TIME = TimeZone.CurrentTimeZone.ToLocalTime(new DateTime(1970, 1, 1, 0, 0, 0, 0));
         private IConsumer consumer;
@@ -460,13 +460,29 @@ namespace SensorsData.Analytics
                 libProperties.Add("$app_version", (String)this.superProperties["$app_version"]);
             }
 
-            // 从当前向上数，第4层正好是用户的调用代码
-            System.Diagnostics.StackFrame[] stackFrames = (new System.Diagnostics.StackTrace(true)).GetFrames();
-            if (stackFrames.Length > 3)
+            // $lib_detail 只用于辅助定位调用代码，获取失败不应影响事件上报。
+            // 动态代理、动态方法或特定运行时环境下，GetFrames、GetMethod 或 ReflectedType 可能为 null。
+            try
             {
-                string libDetail = stackFrames[3].GetMethod().ReflectedType.Name + "##" + stackFrames[3].GetMethod().Name +
-                    "##" + stackFrames[3].GetFileName() + "##" + stackFrames[3].GetFileLineNumber();
-                libProperties.Add("$lib_detail", libDetail);
+                // 从当前向上数，第4层通常是用户的调用代码
+                System.Diagnostics.StackFrame[] stackFrames = (new System.Diagnostics.StackTrace(true)).GetFrames();
+                if (stackFrames != null && stackFrames.Length > 3 && stackFrames[3] != null)
+                {
+                    System.Diagnostics.StackFrame stackFrame = stackFrames[3];
+                    System.Reflection.MethodBase method = stackFrame.GetMethod();
+                    Type reflectedType = method == null ? null : method.ReflectedType ?? method.DeclaringType;
+
+                    if (method != null)
+                    {
+                        string libDetail = (reflectedType == null ? "" : reflectedType.Name) + "##" + method.Name +
+                            "##" + (stackFrame.GetFileName() ?? "") + "##" + stackFrame.GetFileLineNumber();
+                        libProperties.Add("$lib_detail", libDetail);
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // 忽略调用栈采集异常，保证核心埋点流程正常执行。
             }
 
             return libProperties;

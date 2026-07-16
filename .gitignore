@@ -13,10 +13,20 @@
 /DotNetFrameworkDemo/obj
 /DotNetFrameworkDemo/.DS_Store
 
+/DotNetCoreDemo/DotNetCoreDemo.csproj.user
 
 /SAUnitTest/.vs
 /SAUnitTest/bin
 /SAUnitTest/obj
 /SAUnitTest/.DS_Store
+.DS_Store
 
-/DotNetCoreDemo/DotNetCoreDemo.csproj.user
+# 本地开发过程文档和跟踪记录
+/docs/
+/TASK_STATE.md
+/ARCHITECTURE.md
+
+# demo 调试信息
+DotNetCoreDemo/README.md
+DotNetCoreDemo/test-results/
+artifacts/

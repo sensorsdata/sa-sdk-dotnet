@@ -9,18 +9,24 @@
     <!-- NuGet -->
     <OutputType>Library</OutputType>  
     <Company>Sensors Data Co., Ltd</Company>
-    <Version>2.1.1</Version>
+    <PackageId>SensorsData.Analytics</PackageId>
+    <Version>2.1.2</Version>
+    <AssemblyVersion>2.1.2.0</AssemblyVersion>
+    <FileVersion>2.1.2.0</FileVersion>
+    <InformationalVersion>2.1.2</InformationalVersion>
     <Project>SensorsAnalytics C# SDK</Project>
     <Copyright>Sensors Data Co., Ltd</Copyright>
-    <Description>新增 NewClientConsumer 支持定时刷新0</Description>
-    <PackageReleaseNotes>新增 NewClientConsumer 支持定时刷新</PackageReleaseNotes>
+    <Description>Sensors Data NetStandard SDK</Description>
+    <PackageReleaseNotes>修复获取 $lib_detail 时调用栈或反射信息为空可能导致的异常</PackageReleaseNotes>
     <PackageIconUrl>https://avatars1.githubusercontent.com/u/15683221?s=200&amp;v=4</PackageIconUrl>
     <Owners>Sensors Data</Owners>
     <PackageProjectUrl>https://github.com/sensorsdata/sa-sdk-dotnet</PackageProjectUrl>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <DevelopmentDependency>false</DevelopmentDependency>
     <Summary>Sensors Data NetStandard SDK</Summary>
     <Title>Sensors Data CS SDK</Title>
-    <PackageVersion>2.1.1</PackageVersion>
-    <Authors>ZhangWei</Authors>
+    <PackageVersion>$(Version)</PackageVersion>
+    <Authors>Sensors Data</Authors>
   </PropertyGroup>
 
   <ItemGroup>
