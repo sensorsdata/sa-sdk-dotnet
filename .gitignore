@@ -26,7 +26,10 @@
 /TASK_STATE.md
 /ARCHITECTURE.md
 
-# demo 调试信息
-DotNetCoreDemo/README.md
-DotNetCoreDemo/test-results/
+# 构建产物
 artifacts/
+
+# Demo 测试说明
+DotNetCoreDemo/README.md
+DotNetFrameworkDemo/README.md
+DotNetCoreDemo/test-results/
