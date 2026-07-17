@@ -2,11 +2,15 @@
 /SensorsAnalyticsSDK/bin
 /SensorsAnalyticsSDK/obj
 /SensorsAnalyticsSDK/.DS_Store
+.DS_Store
 
 /DotNetCoreDemo/.vs
 /DotNetCoreDemo/bin
 /DotNetCoreDemo/obj
 /DotNetCoreDemo/.DS_Store
+/DotNetCoreDemo/test-results/
+/DotNetCoreDemo/donet_test.txt
+/DotNetCoreDemo/client_consumer_log.txt
 
 /DotNetFrameworkDemo/.vs
 /DotNetFrameworkDemo/bin
@@ -32,4 +36,5 @@ artifacts/
 # Demo 测试说明
 DotNetCoreDemo/README.md
 DotNetFrameworkDemo/README.md
+DotNetFrameworkDemo/test-results/
 DotNetCoreDemo/test-results/
